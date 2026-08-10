@@ -10,6 +10,15 @@ from pydantic import BaseModel, Field
 
 from .matching import MatchingEngine, OrderType, Side
 
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "research"))
+
+from pathwise_research.monte_carlo import GBMParams, gbm_paths, summarize_paths
+
 app = FastAPI(
     title="Pathwise API",
     description="Educational markets & quantitative finance API",
@@ -42,6 +51,18 @@ class OrderRequest(BaseModel):
     quantity: int = Field(gt=0, le=1_000_000)
     limit_price: Optional[float] = None
 
+
+
+class MonteCarloRequest(BaseModel):
+    s0: float = Field(200.0, gt=0)
+    mu: float = Field(0.08, ge=-1, le=2)
+    sigma: float = Field(0.25, gt=0, le=5)
+    T: float = Field(1.0, gt=0, le=50)
+    n_steps: int = Field(252, ge=1, le=2000)
+    n_paths: int = Field(10_000, ge=100, le=1_000_000)
+    seed: Optional[int] = 42
+    target_price: Optional[float] = None
+    max_chart_paths: int = Field(150, ge=10, le=500)
 
 class ResetBookRequest(BaseModel):
     session_id: str = "default"
@@ -106,4 +127,33 @@ def reset_book(req: ResetBookRequest) -> dict[str, Any]:
         "best_ask": snap.best_ask,
         "mid": snap.mid,
         "spread": snap.spread,
+    }
+
+
+@app.post("/api/monte-carlo/gbm")
+def run_monte_carlo(req: MonteCarloRequest) -> dict[str, Any]:
+    t0 = time.perf_counter()
+    params = GBMParams(
+        s0=req.s0,
+        mu=req.mu,
+        sigma=req.sigma,
+        T=req.T,
+        n_steps=req.n_steps,
+        n_paths=req.n_paths,
+        seed=req.seed,
+    )
+    sim = gbm_paths(params)
+    summary = summarize_paths(
+        sim["terminal"],
+        sim["paths"],
+        sim["t"],
+        target_price=req.target_price,
+        max_chart_paths=req.max_chart_paths,
+    )
+    elapsed_ms = (time.perf_counter() - t0) * 1000
+    return {
+        "params": req.model_dump(),
+        "elapsed_ms": elapsed_ms,
+        "n_paths": req.n_paths,
+        **summary,
     }

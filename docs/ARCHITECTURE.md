@@ -21,3 +21,8 @@
 The C++ engine is the performance-oriented reference for price-time priority.
 Bids are sorted descending, asks ascending; FIFO within a price level.
 Market orders walk available liquidity; unfilled limit remainder rests on the book.
+
+## Python matching façade
+
+FastAPI exposes a Python mirror of the C++ matching semantics so the Orders Lab runs without a native build.
+Behavior (price-time priority, demo ladder, fill explanations) is intentionally aligned with the C++ reference.

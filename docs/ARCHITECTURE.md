@@ -16,3 +16,8 @@
 #
 # Vectorized NumPy GBM is clear, seedable, and fast enough for 10k–100k paths in
 # an interactive lab. C++ acceleration can be added later for 1M+ path races.
+## Matching engine (C++)
+
+The C++ engine is the performance-oriented reference for price-time priority.
+Bids are sorted descending, asks ascending; FIFO within a price level.
+Market orders walk available liquidity; unfilled limit remainder rests on the book.

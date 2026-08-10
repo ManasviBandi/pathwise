@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "research"))
 
 from pathwise_research.monte_carlo import GBMParams, gbm_paths, summarize_paths
+from pathwise_research.option_pricing import OptionParams, monte_carlo_option_price
 
 app = FastAPI(
     title="Pathwise API",
@@ -52,6 +53,17 @@ class OrderRequest(BaseModel):
     limit_price: Optional[float] = None
 
 
+
+
+class OptionPriceRequest(BaseModel):
+    spot: float = Field(200.0, gt=0)
+    strike: float = Field(210.0, gt=0)
+    T: float = Field(0.5, gt=0)
+    rate: float = Field(0.04, ge=-0.5, le=1)
+    sigma: float = Field(0.25, gt=0, le=5)
+    option_type: Literal["call", "put"] = "call"
+    n_paths: int = Field(50_000, ge=100, le=1_000_000)
+    seed: Optional[int] = 42
 
 class MonteCarloRequest(BaseModel):
     s0: float = Field(200.0, gt=0)
@@ -157,3 +169,21 @@ def run_monte_carlo(req: MonteCarloRequest) -> dict[str, Any]:
         "n_paths": req.n_paths,
         **summary,
     }
+
+
+@app.post("/api/options/price")
+def price_option(req: OptionPriceRequest) -> dict[str, Any]:
+    t0 = time.perf_counter()
+    params = OptionParams(
+        spot=req.spot,
+        strike=req.strike,
+        T=req.T,
+        rate=req.rate,
+        sigma=req.sigma,
+        option_type=req.option_type,
+        n_paths=req.n_paths,
+        seed=req.seed,
+    )
+    result = monte_carlo_option_price(params)
+    result["elapsed_ms"] = (time.perf_counter() - t0) * 1000
+    return result

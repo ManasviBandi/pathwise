@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Pathwise monorepo
+node_modules/
+frontend/.next/
+frontend/out/
+matching-engine/build/
+*.db
+*.sqlite
+.DS_Store
+.idea/

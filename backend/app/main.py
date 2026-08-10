@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .matching import MatchingEngine, OrderType, Side
+from .lessons import LESSONS, get_lesson, progress_summary
 
 import sys
 import time
@@ -35,6 +36,7 @@ app.add_middleware(
 )
 
 _engines: dict[str, MatchingEngine] = {}
+_progress: dict[str, dict[str, Any]] = {}
 
 
 def get_engine(session_id: str = "default") -> MatchingEngine:
@@ -54,6 +56,14 @@ class OrderRequest(BaseModel):
 
 
 
+
+
+class ProgressUpdate(BaseModel):
+    user_id: str = "local"
+    lesson_id: str
+    completed: bool = False
+    quiz_score: Optional[float] = None
+    challenge_passed: Optional[bool] = None
 
 class OptionPriceRequest(BaseModel):
     spot: float = Field(200.0, gt=0)
@@ -187,3 +197,44 @@ def price_option(req: OptionPriceRequest) -> dict[str, Any]:
     result = monte_carlo_option_price(params)
     result["elapsed_ms"] = (time.perf_counter() - t0) * 1000
     return result
+
+
+@app.get("/api/lessons")
+def list_lessons() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": L["id"],
+            "track": L["track"],
+            "title": L["title"],
+            "summary": L["summary"],
+            "order": L["order"],
+        }
+        for L in LESSONS
+    ]
+
+
+@app.get("/api/lessons/{lesson_id}")
+def lesson_detail(lesson_id: str) -> dict[str, Any]:
+    lesson = get_lesson(lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+    return lesson
+
+
+@app.get("/api/progress/{user_id}")
+def get_progress(user_id: str) -> dict[str, Any]:
+    data = _progress.get(user_id, {})
+    return progress_summary(data)
+
+
+@app.post("/api/progress")
+def update_progress(body: ProgressUpdate) -> dict[str, Any]:
+    user = _progress.setdefault(body.user_id, {})
+    entry = user.setdefault(body.lesson_id, {})
+    if body.completed:
+        entry["completed"] = True
+    if body.quiz_score is not None:
+        entry["quiz_score"] = body.quiz_score
+    if body.challenge_passed is not None:
+        entry["challenge_passed"] = body.challenge_passed
+    return progress_summary(user)

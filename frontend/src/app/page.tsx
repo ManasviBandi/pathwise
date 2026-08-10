@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, ProgressSummary } from "@/lib/api";
 
 const QUICK = [
   { href: "/labs/monte-carlo", title: "Simulate Stock Prices", blurb: "GBM paths & distributions" },
@@ -11,20 +11,33 @@ const QUICK = [
   { href: "/learn", title: "Continue Learning", blurb: "Lessons & challenges" },
 ];
 
+const RECENT = [
+  { name: "Monte Carlo AAPL", href: "/labs/monte-carlo" },
+  { name: "Option Pricing", href: "/labs/options" },
+  { name: "Order Book Walk", href: "/labs/orders" },
+];
+
 export default function DashboardPage() {
+  const [progress, setProgress] = useState<ProgressSummary | null>(null);
   const [apiOk, setApiOk] = useState<boolean | null>(null);
 
   useEffect(() => {
     api.health().then(() => setApiOk(true)).catch(() => setApiOk(false));
+    api.progress().then(setProgress).catch(() => setProgress(null));
   }, []);
 
-  const tracks = [
-    { track: "MARKETS", percent: 0 },
-    { track: "ORDERS", percent: 0 },
-    { track: "EQUITIES", percent: 0 },
-    { track: "MONTE CARLO", percent: 0 },
-    { track: "OPTIONS PRICING", percent: 0 },
-  ];
+  const tracks =
+    progress?.tracks?.filter((t) =>
+      t.total > 0 ||
+      ["MARKETS", "ORDERS", "EQUITIES", "MONTE CARLO", "OPTIONS PRICING"].includes(t.track)
+    ) ||
+    [
+      { track: "MARKETS", percent: 0 },
+      { track: "ORDERS", percent: 0 },
+      { track: "EQUITIES", percent: 0 },
+      { track: "MONTE CARLO", percent: 0 },
+      { track: "OPTIONS PRICING", percent: 0 },
+    ];
 
   return (
     <div className="space-y-6">
@@ -40,8 +53,12 @@ export default function DashboardPage() {
               not by memorizing definitions.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
-              <Link href="/learn" className="btn-primary">Continue Learning</Link>
-              <Link href="/labs/orders" className="btn-ghost">Open Orders Lab</Link>
+              <Link href="/learn/orders-limit" className="btn-primary">
+                Continue Learning · Limit Orders
+              </Link>
+              <Link href="/labs/orders" className="btn-ghost">
+                Open Orders Lab
+              </Link>
             </div>
             {apiOk === false && (
               <p className="mt-4 text-sm text-warn">
@@ -52,11 +69,14 @@ export default function DashboardPage() {
           <div className="rounded-md border border-ink-border bg-ink/50 p-4">
             <p className="text-xs uppercase tracking-wider text-mist-dim">Learning progress</p>
             <ul className="mt-3 space-y-2.5">
-              {tracks.map((t) => (
+              {tracks.slice(0, 6).map((t) => (
                 <li key={t.track} className="grid grid-cols-[7rem_1fr_2.5rem] items-center gap-2 text-sm">
                   <span className="font-mono text-xs text-mist-muted">{t.track}</span>
                   <div className="h-1.5 overflow-hidden rounded-full bg-ink-border">
-                    <div className="h-full rounded-full bg-accent" style={{ width: `${t.percent}%` }} />
+                    <div
+                      className="h-full rounded-full bg-accent transition-all duration-500"
+                      style={{ width: `${t.percent}%` }}
+                    />
                   </div>
                   <span className="text-right font-mono text-xs text-mist">{t.percent}%</span>
                 </li>
@@ -68,11 +88,32 @@ export default function DashboardPage() {
 
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {QUICK.map((q) => (
-          <Link key={q.href} href={q.href} className="panel group p-4 transition hover:border-accent/40 hover:bg-ink-elevated">
+          <Link
+            key={q.href}
+            href={q.href}
+            className="panel group p-4 transition hover:border-accent/40 hover:bg-ink-elevated"
+          >
             <p className="text-sm font-medium text-mist group-hover:text-accent">{q.title}</p>
             <p className="mt-1 text-xs text-mist-muted">{q.blurb}</p>
           </Link>
         ))}
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">Recent experiments</div>
+        <ul className="divide-y divide-ink-border">
+          {RECENT.map((r) => (
+            <li key={r.name}>
+              <Link
+                href={r.href}
+                className="flex items-center justify-between px-4 py-3 text-sm text-mist-muted transition hover:bg-ink-hover hover:text-mist"
+              >
+                <span className="font-mono">{r.name}</span>
+                <span className="text-xs text-accent">Open →</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   );
